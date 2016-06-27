@@ -1,12 +1,13 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import copy
+import sys
 class MLP:
     '''
     one input one hidden one output
 
     '''
-    def __init__(self,n_iter=100,eta=0.1,inodes=1,hnodes=1,onodes=1,check_gradient=True):
+    def __init__(self,n_iter=100,lamda1=0.0000,lamda2=0,eta=0.1,inodes=1,hnodes=1,onodes=1,check_gradient=True):
         '''
         self._w1  array, shape = [1,2],weight for hidden
         self._w2  array, shape = [1,2],weight for output
@@ -17,10 +18,12 @@ class MLP:
         self.onodes=onodes
         self.n_iter = n_iter
         self.eta = eta
-
+        self.lamda2 = lamda2
+        self.lamda1 = lamda1
         self.check_gradient = check_gradient
 
-    def initialize_weights(self):
+        self._initialize_weights()
+    def _initialize_weights(self):
         '''
         initialize weights .
         Note that the extra one is for bias unit
@@ -71,8 +74,7 @@ class MLP:
        
 
 
-#        print (bias1.dot(np.ones(u.shape))).shape
-#        print bias1.dot(np.ones(u.shape)) 
+
 
 
         y = self._sigmoid(u)
@@ -86,11 +88,20 @@ class MLP:
         z = self._sigmoid(v)
 
         return x,u,y,v,z
+    def L2_term(self,w1,w2):
+        
+        return 0.5*self.lamda2*((w1.flatten()**2).sum()+(w2.flatten()**2).sum())
+    def L1_term(self,w1,w2):
+        return 0.5*self.lamda1*(np.abs(w1.flatten()).sum()+np.abs(w2.flatten().sum()))
+
     def get_cost(self,x,t,w1,w2,bias1,bias2):
         x,u,v,y,z=self.feed_forward(x,w1,w2,bias1,bias2)
 
+        
 
-        return (0.5*(z-t)**2).sum()
+
+        return (0.5*(z-t)**2+self.L2_term(w1,w2)+self.L1_term(w1,w2)).sum()
+
     def numerical_gradient(self,x,t):
         '''
         numerical gradient = (J(w+episilon)-J(w-episilon))/2*episilon
@@ -98,10 +109,10 @@ class MLP:
         deep copy the weights so that the numerical evaulation does not change the value of the weights
 
         '''
-        episilon = 1e-7
+        episilon = 1e-6
         w1=copy.deepcopy(self._w1)
         w2=copy.deepcopy(self._w2)
-
+        
 
 
         gradient1 = np.zeros(w1.shape)
@@ -129,8 +140,9 @@ class MLP:
                 nu_gradient = (left-right)/(2*episilon)
                 gradient2[j][i]=nu_gradient
 
-        bias1 = self._bias1
-        bias2 = self._bias2
+        bias1 = copy.deepcopy(self._bias1)
+        bias2 = copy.deepcopy(self._bias2)
+
         bias1_gradient = np.zeros(self.hnodes)
         for i in range(bias1_gradient.shape[0]):
             bias1[i] +=episilon
@@ -140,8 +152,8 @@ class MLP:
             bias1_gradient[i] = (left-right)/(2*episilon)
         bias1_gradient = bias1_gradient.reshape(self.hnodes,1)
 
-        bias1 = self._bias1
-        bias2 = self._bias2
+        bias1 = copy.deepcopy(self._bias1)
+        bias2 = copy.deepcopy(self._bias2)
         
         bias2_gradient = np.zeros(self.onodes)
         for i in range(bias2_gradient.shape[0]):
@@ -200,20 +212,19 @@ class MLP:
 
         sig_grad2 = self._sigmoid_gradient(z)
         
+        
         grad2 = np.dot((output_error*sig_grad2),y.T)
-
-
+ 
+        grad2 +=self.lamda2*(self._w2)+self.lamda1*1
 
 
         step1 = self._w2.T.dot((output_error)*self._sigmoid_gradient(z))
         step2 = step1*self._sigmoid_gradient(y)
-        grad1 = step2.dot(x.T)
+        grad1 = step2.dot(x.T)        
 
-
+        grad1+=self.lamda2*(self._w1)+self.lamda1*1
 
         grad1 = grad1.reshape(self._w1.shape)
-
-
 
 
 
@@ -228,11 +239,9 @@ class MLP:
 
 
 
-            print "relative error %s" % self.relative_error(nu,ana)
+#            print "relative error %s" % self.relative_error(nu,ana)
 
-        self._bias2 -= (output_error*sig_grad2).dot(np.ones((self.n_sample,1)))*self.eta
-
-        
+        self._bias2 -= (output_error*sig_grad2).dot(np.ones((self.n_sample,1)))*self.eta        
         self._bias1 -= (step1*self._sigmoid_gradient(y)).dot(np.ones((self.n_sample,1)))*self.eta
 
         self._w2-=grad2*np.ones(grad2.shape)*self.eta
@@ -270,39 +279,43 @@ class MLP:
 
         return z
             
-def error_graph(n_iter):
+def error_graph(n_iter,neural):
     plt.xlabel('epoch')
     plt.ylabel('sse')
-    plt.scatter(np.linspace(1,n_iter,n_iter),neural.error)
-
+    plt.plot(np.linspace(1,n_iter,n_iter),neural.error)
+    plt.show()
 def comparison_graph(X,Y):
-    plt.scatter(X,Y,marker='o')
-    plt.scatter(X,neural.predict(X),marker='x')
-
+    plt.scatter(X,Y,marker='o',label='real data',color='yellow')
+    plt.scatter(X,neural.predict(X),marker='x',label='network output',color='red')
+    
+    plt.legend()
+    plt.show()
 
 if __name__ == '__main__':
-    n_iter = 100
+    n_iter = 400
     inodes = 1
-    hnodes = 2
+    hnodes = 1
     onodes = 1
 
-    neural = MLP(n_iter=n_iter,inodes=inodes,hnodes=hnodes,onodes=onodes,eta=0.06)
-    n_samples = 400
-    neural.initialize_weights()
+    neural = MLP(n_iter=n_iter,inodes=inodes,hnodes=hnodes,onodes=onodes,eta=0.2)
+    n_samples = 100
 
-    X_train = np.linspace(1,44,n_samples)*np.pi/180.
+
+    X_train = np.linspace(1,30,n_samples)*np.pi/180.
     X_train=X_train.reshape(inodes,n_samples)
     Y_train = np.sin(X_train)    
     Y_train=Y_train.reshape(onodes,n_samples)
+    '''
     X_test =  np.linspace(44,89,n_samples)*np.pi/180
     X_test=X_test.reshape(inodes,n_samples)
     Y_test = np.sin(X_test)
     Y_test=Y_test.reshape(onodes,n_samples)
+    '''
     neural.fit(X_train,Y_train)
     
- #   error_graph(n_iter)
+#    error_graph(n_iter,neural)
 #    comparison_graph(X_test,Y_test)
     comparison_graph(X_train,Y_train)
-    plt.show()
+
     
     
