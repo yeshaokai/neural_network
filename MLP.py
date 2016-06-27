@@ -7,7 +7,7 @@ class MLP:
     one input one hidden one output
 
     '''
-    def __init__(self,n_iter=100,lamda1=0.0000,lamda2=0,eta=0.1,inodes=1,hnodes=1,onodes=1,check_gradient=True):
+    def __init__(self,n_iter=100,lamda1=0.00,lamda2=0,eta=0.1,inodes=1,hnodes=1,onodes=1,check_gradient=True):
         '''
         self._w1  array, shape = [1,2],weight for hidden
         self._w2  array, shape = [1,2],weight for output
@@ -31,6 +31,7 @@ class MLP:
 
         self._w1 = np.random.uniform(-1,1,(self.hnodes,self.inodes))
         self._w2 = np.random.uniform(-1,1,(self.onodes,self.hnodes))
+
         self._bias1 = np.random.uniform(-1,1,(self.hnodes,1))
         self._bias2 = np.random.uniform(-1,1,(self.onodes,1))
         
