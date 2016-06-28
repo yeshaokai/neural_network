@@ -8,7 +8,7 @@ class MLP:
     one input one hidden one output
 
     '''
-    def __init__(self,n_iter=100,lamda1=0.0,lamda2=0.0,eta=0.2,inodes=1,hnodes=1,onodes=1,minibatches=2,check_gradient=False):
+    def __init__(self,n_iter=100,lamda1=0.2,lamda2=0.2,eta=0.2,inodes=1,hnodes=1,onodes=1,minibatches=2,check_gradient=True):
         '''
         self._w1  array, shape = [1,2],weight for hidden
         self._w2  array, shape = [1,2],weight for output
@@ -49,6 +49,7 @@ class MLP:
         '''
         return a sigmoid function
         
+        scipy.special.expit can prevent data overflow
         '''
         shape = x.shape
         return expit(x).reshape(shape)
@@ -71,7 +72,6 @@ class MLP:
         '''
 
 
-
         u = w1.dot(x)
         u+= bias1*np.ones(u.shape)    
         y = self._sigmoid(u)
@@ -84,12 +84,12 @@ class MLP:
         
         return 0.5*self.lamda2*((w1.flatten()**2).sum()+(w2.flatten()**2).sum())
     def L1_term(self,w1,w2):
-        return 0.5*self.lamda1*(np.abs(w1.flatten()).sum()+np.abs(w2.flatten().sum()))
+        return 0.5*self.lamda1*(np.abs(w1.flatten()).sum()+np.abs(w2.flatten()).sum())
 
     def get_cost(self,x,t,w1,w2,bias1,bias2):
         x,u,v,y,z=self.feed_forward(x,w1,w2,bias1,bias2)
-        
-        return (0.5*(z-t)**2+self.L2_term(w1,w2)+self.L1_term(w1,w2)).sum()
+        return (0.5*(z-t)**2).sum()+self.L2_term(w1,w2)+self.L1_term(w1,w2)
+
 
     def numerical_gradient(self,x,t):
         '''
@@ -204,14 +204,14 @@ class MLP:
         
         grad2 = np.dot((output_error*sig_grad2),y.T)
  
-        grad2 +=self.lamda2*(self._w2)+self.lamda1*1
+        grad2 = grad2+self.lamda2*(self._w2)+0.5*self.lamda1*self._w2/abs(self._w2)
 
 
         step1 = self._w2.T.dot((output_error)*self._sigmoid_gradient(z))
         step2 = step1*self._sigmoid_gradient(y)
         grad1 = step2.dot(x.T)        
 
-        grad1+=self.lamda2*(self._w1)+self.lamda1*1
+        grad1= grad1+self.lamda2*(self._w1)+0.5*self.lamda1*self._w1/abs(self._w1)
 
         grad1 = grad1.reshape(self._w1.shape)
 
@@ -228,7 +228,7 @@ class MLP:
 
 
 
-#            print "relative error %s" % self.relative_error(nu,ana)
+            print "relative error %s" % self.relative_error(nu,ana)
 
         self._bias2 -= (output_error*sig_grad2).dot(np.ones((batch_length,1)))*self.eta        
         self._bias1 -= (step1*self._sigmoid_gradient(y)).dot(np.ones((batch_length,1)))*self.eta
@@ -256,11 +256,11 @@ class MLP:
                 mini_x,u,y,v,z = self.feed_forward(mini_x,self._w1,self._w2,self._bias1,self._bias2)
         
                 e = self.get_cost(mini_x,mini_t,self._w1,self._w2,self._bias1,self._bias2)/(len(idx))
-                                
-        
+                error.append(e)
+                
                 self._update_weights(mini_t,mini_x,u,y,v,z,len(idx))
 
-            self.error.append(e)
+            self.error.append(np.array(error).mean())
 
 
     def predict(self,x):
