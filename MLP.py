@@ -2,16 +2,18 @@ import numpy as np
 import matplotlib.pyplot as plt
 import copy
 import sys
+from scipy.special import expit
 class MLP:
     '''
     one input one hidden one output
 
     '''
-    def __init__(self,n_iter=100,lamda1=0.00,lamda2=0,eta=0.1,inodes=1,hnodes=1,onodes=1,check_gradient=True):
+    def __init__(self,n_iter=100,lamda1=0.0,lamda2=0.0,eta=0.2,inodes=1,hnodes=1,onodes=1,minibatches=2,check_gradient=False):
         '''
         self._w1  array, shape = [1,2],weight for hidden
         self._w2  array, shape = [1,2],weight for output
         '''
+        self.minibatches = minibatches
         self.n_sample=0
         self.inodes=inodes
         self.hnodes=hnodes
@@ -46,9 +48,10 @@ class MLP:
     def _sigmoid(self,x):
         '''
         return a sigmoid function
-
+        
         '''
-        return 1.0/(1.0+np.exp(-x))
+        shape = x.shape
+        return expit(x).reshape(shape)
     def _sigmoid_gradient(self,z):
         '''
         gradient of sigmoid function
@@ -68,26 +71,14 @@ class MLP:
         '''
 
 
+
         u = w1.dot(x)
- #       u += bias1.dot(np.ones(u.shape))
-
-        u+= bias1*np.ones(u.shape)
-       
-
-
-
-
-
+        u+= bias1*np.ones(u.shape)    
         y = self._sigmoid(u)
-
         v = np.dot(w2,y)
-
         v+= bias2*np.ones(v.shape)
-
-
-
         z = self._sigmoid(v)
-
+        
         return x,u,y,v,z
     def L2_term(self,w1,w2):
         
@@ -97,10 +88,7 @@ class MLP:
 
     def get_cost(self,x,t,w1,w2,bias1,bias2):
         x,u,v,y,z=self.feed_forward(x,w1,w2,bias1,bias2)
-
         
-
-
         return (0.5*(z-t)**2+self.L2_term(w1,w2)+self.L1_term(w1,w2)).sum()
 
     def numerical_gradient(self,x,t):
@@ -188,7 +176,7 @@ class MLP:
     
     def relative_error(self,a,b):
         return np.linalg.norm(a-b)/(np.linalg.norm(a)+np.linalg.norm(b))
-    def _update_weights(self,t,x,u,y,v,z):
+    def _update_weights(self,t,x,u,y,v,z,batch_length):
         '''
         t [array] ->target vector
         x [array] ->input vector
@@ -229,8 +217,8 @@ class MLP:
 
 
 
-        bias2_gradient = (output_error*sig_grad2).dot(np.ones((self.n_sample,1)))
-        bias1_gradient = (step1*self._sigmoid_gradient(y)).dot(np.ones((self.n_sample,1)))
+        bias2_gradient = (output_error*sig_grad2).dot(np.ones((batch_length,1)))
+        bias1_gradient = (step1*self._sigmoid_gradient(y)).dot(np.ones((batch_length,1)))
         if self.check_gradient:
             nu = self.numerical_gradient(x,t)
             ana = np.hstack((grad1.flatten(),grad2.flatten()))
@@ -242,8 +230,8 @@ class MLP:
 
 #            print "relative error %s" % self.relative_error(nu,ana)
 
-        self._bias2 -= (output_error*sig_grad2).dot(np.ones((self.n_sample,1)))*self.eta        
-        self._bias1 -= (step1*self._sigmoid_gradient(y)).dot(np.ones((self.n_sample,1)))*self.eta
+        self._bias2 -= (output_error*sig_grad2).dot(np.ones((batch_length,1)))*self.eta        
+        self._bias1 -= (step1*self._sigmoid_gradient(y)).dot(np.ones((batch_length,1)))*self.eta
 
         self._w2-=grad2*np.ones(grad2.shape)*self.eta
         self._w1-=grad1*np.ones(grad1.shape)*self.eta
@@ -259,15 +247,18 @@ class MLP:
         for i in range(self.n_iter):
             error=[]
            
-#            w1,w2 = self._w1,self._w2
+            mini = np.array_split(range(x.shape[1]),self.minibatches)
+            for idx in mini:
 
-            x,u,y,v,z = self.feed_forward(x,self._w1,self._w2,self._bias1,self._bias2)
-    
-            e = self.get_cost(x,t,self._w1,self._w2,self._bias1,self._bias2)
-                
-            self._update_weights(t,x,u,y,v,z)
-    
+                mini_x = x[:,idx]
+                mini_t = t[:,idx]
 
+                mini_x,u,y,v,z = self.feed_forward(mini_x,self._w1,self._w2,self._bias1,self._bias2)
+        
+                e = self.get_cost(mini_x,mini_t,self._w1,self._w2,self._bias1,self._bias2)/(len(idx))
+                                
+        
+                self._update_weights(mini_t,mini_x,u,y,v,z,len(idx))
 
             self.error.append(e)
 
