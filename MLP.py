@@ -2,19 +2,22 @@ import numpy as np
 import matplotlib.pyplot as plt
 import copy
 import sys
+from sklearn.cross_validation import train_test_split
+
 from scipy.special import expit
+
 class MLP:
     '''
     one input one hidden one output
 
     '''
-    def __init__(self,n_iter=100,lamda1=0.2,lamda2=0.2,eta=0.2,inodes=1,hnodes=1,onodes=1,minibatches=2,check_gradient=True):
+    def __init__(self,n_iter=100,learning_curve=False,lamda1=0.0,lamda2=0.0,eta=0.2,inodes=1,hnodes=1,onodes=1,minibatches=1,check_gradient=False):
         '''
         self._w1  array, shape = [1,2],weight for hidden
         self._w2  array, shape = [1,2],weight for output
         '''
+        self.learning_curve = learning_curve
         self.minibatches = minibatches
-        self.n_sample=0
         self.inodes=inodes
         self.hnodes=hnodes
         self.onodes=onodes
@@ -86,10 +89,19 @@ class MLP:
     def L1_term(self,w1,w2):
         return 0.5*self.lamda1*(np.abs(w1.flatten()).sum()+np.abs(w2.flatten()).sum())
 
-    def get_cost(self,x,t,w1,w2,bias1,bias2):
+    def get_cost(self,x,t,w1,w2,bias1,bias2,verbose=False):
+        '''
+         if verbose is True, return information for each layer.
+         
+        '''
+        
         x,u,v,y,z=self.feed_forward(x,w1,w2,bias1,bias2)
-        return (0.5*(z-t)**2).sum()+self.L2_term(w1,w2)+self.L1_term(w1,w2)
-
+        value = (0.5*(z-t)**2).sum()+self.L2_term(w1,w2)+self.L1_term(w1,w2)
+        if not verbose:
+            return value
+        else:
+            return (x,u,v,y,z,value)
+    
 
     def numerical_gradient(self,x,t):
         '''
@@ -240,29 +252,57 @@ class MLP:
         '''
         online learning
         
-        
         '''
-        self.n_sample = x.shape[1]
-        self.error=[]
-        for i in range(self.n_iter):
-            error=[]
-           
-            mini = np.array_split(range(x.shape[1]),self.minibatches)
-            for idx in mini:
-
-                mini_x = x[:,idx]
-                mini_t = t[:,idx]
-
-                mini_x,u,y,v,z = self.feed_forward(mini_x,self._w1,self._w2,self._bias1,self._bias2)
+        X_train = x
+        t_train = t
+        test_size = 0
+        if self.learning_curve:
+            test_size = 0.2
+            X_train,X_validation,t_train,t_validation = train_test_split(x.T,t.T,test_size = test_size,random_state=0)
+            X_train,X_validation,t_train,t_validation = X_train.T,X_validation.T,t_train.T,t_validation.T
+        '''
+        split the training data two two parts
+        '''
         
-                e = self.get_cost(mini_x,mini_t,self._w1,self._w2,self._bias1,self._bias2)/(len(idx))
-                error.append(e)
-                
+
+        self.error=[]
+        self.error_validation=[]
+
+        for i in range(self.n_iter):
+
+            error=[]           
+            error_validation=[]
+
+            mini = np.array_split(range(X_train.shape[1]),self.minibatches)
+
+            mini_validation = np.array_split(range(X_validation.shape[1]),self.minibatches)
+
+            for idx,idx_validation in zip(mini,mini_validation):
+
+                mini_x = X_train[:,idx]
+                mini_t = t_train[:,idx]
+
+                mini_x_validation = X_validation[:,idx_validation]
+                mini_t_validation = t_validation[:,idx_validation]
+
+                mini_x,u,y,v,z,e = self.get_cost(mini_x,mini_t,self._w1,self._w2,self._bias1,self._bias2,verbose=True)
+
+                e_validation = self.get_cost(mini_x_validation,mini_t_validation,self._w1,self._w2,self._bias1,self._bias2)
+
+
+                error.append(e/len(idx))
+                error_validation.append(e_validation/len(idx_validation))
+
                 self._update_weights(mini_t,mini_x,u,y,v,z,len(idx))
 
             self.error.append(np.array(error).mean())
-
-
+            self.error_validation.append(np.array(error_validation).mean())
+            
+    def draw_learning_curve(self):
+        plt.plot(range(self.n_iter),self.error,label='training error')
+        plt.plot(range(self.n_iter),self.error_validation,label='validation error')
+        plt.legend()
+        plt.show()
     def predict(self,x):
 
 
