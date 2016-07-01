@@ -54,6 +54,10 @@ class MLP:
         
         scipy.special.expit can prevent data overflow
         '''
+        if np.isnan(np.min(expit(x))):
+            print "you got",str(x)
+            
+            sys.exit()
         shape = x.shape
         return expit(x).reshape(shape)
     def _sigmoid_gradient(self,z):
@@ -76,7 +80,11 @@ class MLP:
 
 
         u = w1.dot(x)
+
+
         u+= bias1*np.ones(u.shape)    
+
+
         y = self._sigmoid(u)
         v = np.dot(w2,y)
         v+= bias2*np.ones(v.shape)
@@ -96,7 +104,7 @@ class MLP:
         '''
         
         x,u,v,y,z=self.feed_forward(x,w1,w2,bias1,bias2)
-        value = (0.5*(z-t)**2).sum()+self.L2_term(w1,w2)+self.L1_term(w1,w2)
+        value = ((0.5*(z-t)**2)).sum()+self.L2_term(w1,w2)+self.L1_term(w1,w2)
         if not verbose:
             return value
         else:
@@ -110,7 +118,7 @@ class MLP:
         deep copy the weights so that the numerical evaulation does not change the value of the weights
 
         '''
-        episilon = 1e-9
+        episilon = 1e-8
         w1=copy.deepcopy(self._w1)
         w2=copy.deepcopy(self._w2)
         
@@ -209,13 +217,13 @@ class MLP:
 
         '''
         
-        output_error = z-t
+        output_error = (z-t)
 
         sig_grad2 = 1#self._sigmoid_gradient(z)
         
         
         grad2 = np.dot((output_error*sig_grad2),y.T)
- 
+        
         grad2 = grad2+self.lamda2*(self._w2)+0.5*self.lamda1*self._w2/abs(self._w2)
 
 
@@ -231,6 +239,7 @@ class MLP:
 
         bias2_gradient = (output_error*sig_grad2).dot(np.ones((batch_length,1)))
         bias1_gradient = (step1*self._sigmoid_gradient(y)).dot(np.ones((batch_length,1)))
+
         if self.check_gradient:
             nu = self.numerical_gradient(x,t)
             ana = np.hstack((grad1.flatten(),grad2.flatten()))
@@ -246,6 +255,7 @@ class MLP:
         self._bias1 -= (step1*self._sigmoid_gradient(y)).dot(np.ones((batch_length,1)))*self.eta
 
         self._w2-=grad2*np.ones(grad2.shape)*self.eta
+        
         self._w1-=grad1*np.ones(grad1.shape)*self.eta
 
     def fit(self,x,t):
@@ -260,6 +270,7 @@ class MLP:
             test_size = 0.2
             X_train,X_validation,t_train,t_validation = train_test_split(x.T,t.T,test_size = test_size,random_state=0)
             X_train,X_validation,t_train,t_validation = X_train.T,X_validation.T,t_train.T,t_validation.T
+
         '''
         split the training data two two parts
         '''
