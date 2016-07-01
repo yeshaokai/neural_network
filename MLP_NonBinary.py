@@ -80,8 +80,8 @@ class MLP:
         y = self._sigmoid(u)
         v = np.dot(w2,y)
         v+= bias2*np.ones(v.shape)
-        z = self._sigmoid(v)
-
+        z = v#self._sigmoid(v)
+        
         return x,u,y,v,z
     def L2_term(self,w1,w2):
         
@@ -110,7 +110,7 @@ class MLP:
         deep copy the weights so that the numerical evaulation does not change the value of the weights
 
         '''
-        episilon = 1e-6
+        episilon = 1e-9
         w1=copy.deepcopy(self._w1)
         w2=copy.deepcopy(self._w2)
         
@@ -211,7 +211,7 @@ class MLP:
         
         output_error = z-t
 
-        sig_grad2 = self._sigmoid_gradient(z)
+        sig_grad2 = 1#self._sigmoid_gradient(z)
         
         
         grad2 = np.dot((output_error*sig_grad2),y.T)
@@ -219,7 +219,7 @@ class MLP:
         grad2 = grad2+self.lamda2*(self._w2)+0.5*self.lamda1*self._w2/abs(self._w2)
 
 
-        step1 = self._w2.T.dot((output_error)*self._sigmoid_gradient(z))
+        step1 = self._w2.T.dot((output_error)*sig_grad2)
         step2 = step1*self._sigmoid_gradient(y)
         grad1 = step2.dot(x.T)        
 
