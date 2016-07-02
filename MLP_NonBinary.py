@@ -54,10 +54,12 @@ class MLP:
         
         scipy.special.expit can prevent data overflow
         '''
+
         if np.isnan(np.min(expit(x))):
-            print "you got",str(x)
-            
-            sys.exit()
+
+            print ("there is a nan in your calculation")
+        
+
         shape = x.shape
         return expit(x).reshape(shape)
     def _sigmoid_gradient(self,z):

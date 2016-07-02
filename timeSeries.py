@@ -31,9 +31,16 @@ sig = sig+s
 
 
 start_index = 0
+'''
+slicing the data to current and future times
+
+'''
 
 y = sig[start_index+lags:start_index+lags+n_sample]
-X = sig[start_index:start_index+n_sample+lags]
+X = sig[start_index:start_index+n_sample]
+print y.shape
+print X.shape
+
 X_container = np.zeros((lags,n_sample))
 for i in range(n_sample):
     X_lags = (X[start_index+i:start_index+i+lags]).flatten()
@@ -41,13 +48,13 @@ for i in range(n_sample):
 
 
 n_iter = 100
-eta = 0.1
+eta = 0.02
 inodes = lags
 onodes = 1
 hnodes = 20
 learning_curve = True
 
-mlp = MLP(n_iter=n_iter,inodes=inodes,hnodes=hnodes,onodes=onodes,eta=eta,learning_curve=True,minibatches=100,lamda2=0.0,lamda1=0.0)
+mlp = MLP(n_iter=n_iter,inodes=inodes,hnodes=hnodes,onodes=onodes,eta=eta,learning_curve=True,minibatches=50,lamda2=0.0,lamda1=0.0)
 y = y.reshape(1,len(y))
 mlp.fit(X_container,y)
 
@@ -56,7 +63,10 @@ mlp.fit(X_container,y)
 print (abs(mlp.predict(X_container)-y).mean()/abs(y).mean())
 
 
+
+
 plt.plot(range(n_sample),y.flatten(),label='real data')
 plt.plot(range(n_sample),mlp.predict(X_container).flatten(),label='predicted data')
 plt.legend()
 plt.show()
+
