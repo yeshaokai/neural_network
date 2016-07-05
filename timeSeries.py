@@ -5,13 +5,11 @@ from io import StringIO
 import numpy as np
 from MLP_NonBinary import *
 from scipy import signal
-#from MLP import *
 
-#df_air = pd.read_csv('AirQualityUCI.csv',sep=';')
-#O3 = df_air.iloc[:,11].values.astype(float)
-#df_air.dropna(axis=0)
-#ss = StandardScaler()
-#O3 = O3.reshape(len(O3),1)
+'''
+this is a simple demonstration of time-Lagged Network
+
+'''
 
 lags = 1
 
