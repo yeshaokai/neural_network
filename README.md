@@ -1,6 +1,6 @@
 singleNeural.py is the simplest form of neural network
 
-MLP.py is the base class for Multiple Layer Perceptron Neural Network
+MLP.py is the base class for Multiple Layer Perceptron Neural Network (has most detailed documentation)
 
 MLP_NonBinary.py is the variance of MLP that generates output that is not between 0 to 1 so it can approximate most real world system
 

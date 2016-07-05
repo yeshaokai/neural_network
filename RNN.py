@@ -32,15 +32,19 @@ class RNN:
         '''
         initialize weights .
         Note that the extra one is for bias unit
+
+        self._y  array,shape [hnodes], always stores the last time step y
+        self._ar array,shape [hnodes]
         '''
 
         self._w1 = np.random.uniform(-1,1,(self.hnodes,self.inodes))
         self._w2 = np.random.uniform(-1,1,(self.onodes,self.hnodes))
 
-        self._ar = np.random.uniform(0,1,(self.hnodes,self.inodes))
 
-        self._y = np.random.uniform(0,1,0)
-        self._pi = np.random.uniform(0,1,0)
+        self._ar = np.random.uniform(0,1,(self.hnodes,1))
+        self._y = np.random.uniform(0,1,(self.hnodes,1))
+
+        self._pi = np.zeros((self.hnodes,1))
 
         self._bias1 = np.random.uniform(-1,1,(self.hnodes,1))
 
@@ -85,11 +89,22 @@ class RNN:
         v = w2.dot(y) + bias2*np.ones(v.shape)
         
         z = sigmoid(v)
-                        
+
+        it seems like that the recurrent network can only do incremental learning
         '''
+
+
+        u = w1.dot(x)+self._ar[:,-1].reshape((self.hnodes,1))*(self._y[:,-1].reshape(self.hnodes,1))
+
+
+        u+=bias1*np.ones(u.shape)
+        '''
+        y here is y(t+1). Should be saved to the y array.
         
-        u = w1.dot(x)+self._ar.dot(self._y[-1])+bias1*np.ones(u.shape)
+        '''
         y = self._sigmoid(u)
+        self._y = np.hstack((self._y,y))
+
         v = np.dot(w2,y)
         v+= bias2*np.ones(v.shape)
         z = self._sigmoid(v)
@@ -178,24 +193,39 @@ class RNN:
             bias2_gradient[i] = (left-right)/(2*episilon)
         bias2_gradient.reshape((self.onodes,1))
 
+        
+        recur1_gradient = np.zeros(self.hnodes)
+        for i in range(recur1_gradient.shape[0]):
+            self._ar[i,-1]+=episilon
+            left = self.get_cost(x[:,-1],t[:,-1],self._w1,self._w2,bias1,bias2)
+            self._ar[i,-1]+=2*episilon
+            right = self.get_cost(x[:,-1],t[:,-1],self._w1,self._w2,bias1,bias2)
+            recur1_gradient[i] = (left_right)/(2*episilon)
+        recur1_gradient.reshape((self.hnodes,1))
+
+
         num_weight_gradient = self._w1.shape[0]*self._w1.shape[1]+self._w2.shape[0]*self._w2.shape[1]
 
         num_bias_gradient = self._bias1.shape[0]+self._bias2.shape[0]
 
-        gradient_array = np.zeros((1,num_weight_gradient+num_bias_gradient))
+        num_recur1_gradient = self._ar.shape[0]
+
+        gradient_array = np.zeros((1,num_weight_gradient+num_bias_gradient+num_recur1_gradient))
 
         weight_gradient = np.hstack((gradient1.flatten(),gradient2.flatten()))
 
         bias_gradient = np.hstack((bias1_gradient.flatten(),bias2_gradient.flatten()))
 
         bias_gradient = bias_gradient.reshape(1,num_bias_gradient)
-
+        
 
 
 
         gradient_array[:,0:num_weight_gradient]+=weight_gradient
 
-        gradient_array[:,num_weight_gradient:]+=bias_gradient
+        gradient_array[:,num_weight_gradient:num_weight_gradient+num_bias_gradient]+=bias_gradient
+        
+        gradient_array[:,num_weight_gradient+num_bias_gradient:]+=recur1_gradient
         return gradient_array
     
     def relative_error(self,a,b):
@@ -230,15 +260,29 @@ class RNN:
  
         grad2 = grad2+self.lamda2*(self._w2)+0.5*self.lamda1*self._w2/abs(self._w2)
 
-
+        ### for recurrent network, the gradient 2 seems to be same
+        
         step1 = self._w2.T.dot((output_error)*self._sigmoid_gradient(z))
         step2 = step1*self._sigmoid_gradient(y)
+
         grad1 = step2.dot(x.T)        
 
         grad1= grad1+self.lamda2*(self._w1)+0.5*self.lamda1*self._w1/abs(self._w1)
 
         grad1 = grad1.reshape(self._w1.shape)
 
+        ### updating the recurrent weight
+        # self._y[-1] has y(t+1)  self._y[-2] has y(t)
+        # u(t+1) is the u we have 
+        # self._ar[-1] has ar(t)
+        
+        p = output_error*sig_grad2
+        # grad_recurrent =  p(t+1)b(t+1)derivative(u(t+1))[y(t)+ar[t]pi[t]]
+        #derivative(u(t+1)) is self._sigmoid_gradient(y)
+        grad_recurrent = self._w2.T.dot(p)*self._sigmoid_gradient(y)*(self._y[:,-2]+self._ar[:,-1]) # [hidden]
+
+        ### 
+        self._ar = np.hstack((self._ar,self._ar[:,-1]+grad_recurrent))
 
 
         bias2_gradient = (output_error*sig_grad2).dot(np.ones((batch_length,1)))
@@ -248,8 +292,7 @@ class RNN:
             ana = np.hstack((grad1.flatten(),grad2.flatten()))
             ana = np.hstack((ana,bias1_gradient.flatten()))
             ana = np.hstack((ana,bias2_gradient.flatten()))
-
-
+            ana = np.hstack((ana,self._ar[:,-1].flatten()))
 
 
             print "relative error %s" % self.relative_error(nu,ana)
@@ -261,6 +304,8 @@ class RNN:
         self._w1-=grad1*np.ones(grad1.shape)*self.eta
 
     def fit(self,x,t):
+
+
         '''
         online learning
         
@@ -279,36 +324,35 @@ class RNN:
 
         self.error=[]
         self.error_validation=[]
+        ####
 
+        ####
         for i in range(self.n_iter):
 
             error=[]           
             error_validation=[]
+            
+            mini = np.array_split(range(X_train.shape[1]),X_train.shape[1])
 
-            mini = np.array_split(range(X_train.shape[1]),self.minibatches)
+            mini_validation = np.array_split(range(X_validation.shape[1]),X_train.shape[1])
 
-            mini_validation = np.array_split(range(X_validation.shape[1]),self.minibatches)
-
-            for idx,idx_validation in zip(mini,mini_validation):
+            for idx in mini:
 
                 mini_x = X_train[:,idx]
                 mini_t = t_train[:,idx]
 
-                mini_x_validation = X_validation[:,idx_validation]
-                mini_t_validation = t_validation[:,idx_validation]
+
 
                 mini_x,u,y,v,z,e = self.get_cost(mini_x,mini_t,self._w1,self._w2,self._bias1,self._bias2,verbose=True)
 
-                e_validation = self.get_cost(mini_x_validation,mini_t_validation,self._w1,self._w2,self._bias1,self._bias2)
-
 
                 error.append(e/len(idx))
-                error_validation.append(e_validation/len(idx_validation))
+
 
                 self._update_weights(mini_t,mini_x,u,y,v,z,len(idx))
 
             self.error.append(np.array(error).mean())
-            self.error_validation.append(np.array(error_validation).mean())
+
             
     def draw_learning_curve(self):
         plt.plot(range(self.n_iter),self.error,label='training error')
@@ -323,11 +367,11 @@ class RNN:
 
         return z
             
-def error_graph(n_iter,neural):
-    plt.xlabel('epoch')
-    plt.ylabel('sse')
-    plt.plot(np.linspace(1,n_iter,n_iter),neural.error)
-    plt.show()
+    def error_graph(self):
+        plt.xlabel('epoch')
+        plt.ylabel('sse')
+        plt.plot(np.linspace(1,self.n_iter,self.n_iter),self.error)
+        plt.show()
 def comparison_graph(X,Y):
     plt.scatter(X,Y,marker='o',label='real data',color='yellow')
     plt.scatter(X,neural.predict(X),marker='x',label='network output',color='red')
