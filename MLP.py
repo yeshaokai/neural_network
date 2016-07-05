@@ -6,15 +6,24 @@ from sklearn.cross_validation import train_test_split
 
 from scipy.special import expit
 
-class MLP:
+class MLP:  # Multiple Layer Perceptron
     '''
-    one input one hidden one output
+    able to work with abiratry numbers of hidden neurons, input neurons and output neurons
 
     '''
     def __init__(self,n_iter=100,learning_curve=False,lamda1=0.0,lamda2=0.0,eta=0.2,inodes=1,hnodes=1,onodes=1,minibatches=1,check_gradient=False):
         '''
         self._w1  array, shape = [1,2],weight for hidden
         self._w2  array, shape = [1,2],weight for output
+        self.minibatches int, decides the number of blocks for dividing the training set. Each block of traning set is used to update the Sum of Error
+        self.inodes int, number of input neurons
+        self.hnodes int, number of hidden neurons
+        self.onodes int, number of output neurons
+        self.eta float, learning rate
+        self.lamda2  float, L2 regularization for constraining the weights
+        self.lamda1  float, L1 regularization for constraining the weights
+        self.check_gradient boolean, toggle to print the comparison between numerical and analytical gradient 
+        
         '''
         self.learning_curve = learning_curve
         self.minibatches = minibatches
@@ -31,7 +40,10 @@ class MLP:
     def _initialize_weights(self):
         '''
         initialize weights .
-        Note that the extra one is for bias unit
+        self._w1 array, weights matrix between input and hidden layer
+        self._w2 array, weights matrix between hidden and output layer
+        self._bias1 array, bias array between input and hidden layer
+        self._bias2 array, bias array between hidden and output layer
         '''
 
         self._w1 = np.random.uniform(-1,1,(self.hnodes,self.inodes))
@@ -41,18 +53,13 @@ class MLP:
         self._bias2 = np.random.uniform(-1,1,(self.onodes,1))
         
 
-
-    def net_input(self,X,W):
-        '''
-        return the net input of this neuron
-
-        '''
-        return np.dot(X,W)
     def _sigmoid(self,x):
         '''
         return a sigmoid function
         
         scipy.special.expit can prevent data overflow
+
+        
         '''
         shape = x.shape
         return expit(x).reshape(shape)
@@ -66,12 +73,13 @@ class MLP:
     
     def feed_forward(self,x,w1,w2,bias1,bias2):
         '''
+        x is the input 
+        u is the net input for hidden neuron                                    
+        y is the activation output from hidden neuron                           
+        v is the input of the ouptut neuron                 
+        z is the output of the output neuron                                    
 
-        u is the net input for hidden neuron
         
-        y is the activation output from hidden neuron
-
-
         '''
 
 
@@ -91,8 +99,10 @@ class MLP:
 
     def get_cost(self,x,t,w1,w2,bias1,bias2,verbose=False):
         '''
+
          if verbose is True, return information for each layer.
-         
+         the cost function is sigma(number of training){0.5(z-t)^2}
+
         '''
         
         x,u,v,y,z=self.feed_forward(x,w1,w2,bias1,bias2)
@@ -250,7 +260,11 @@ class MLP:
 
     def fit(self,x,t):
         '''
-        online learning
+        
+        use train_test_split to divide the data to training data and test data
+        and then use train_test_split to divide the training data to trainning data and validation data
+        
+        use batches to do feed_forwarding and weights_updating . So the weights can be updated more frequently.
         
         '''
         X_train = x
