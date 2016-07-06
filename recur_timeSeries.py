@@ -15,7 +15,7 @@ lags = 1
 
 print "the distance between input and output is %s" % (lags)
 n_all=1000
-n_sample = 700
+n_sample = 300
 
 t = np.linspace(0,1,n_all,endpoint=False)
 sig = np.sin(2*np.pi*t)
@@ -52,7 +52,7 @@ onodes = 1
 hnodes = 2
 learning_curve = True
 
-rnn = RNN(n_iter=n_iter,inodes=inodes,hnodes=hnodes,onodes=onodes,eta=eta,learning_curve=True,minibatches=1,lamda2=0.0,lamda1=0.0,check_gradient=True)
+rnn = RNN(n_iter=n_iter,inodes=inodes,hnodes=hnodes,onodes=onodes,eta=eta,learning_curve=True,minibatches=50,lamda2=0.0,lamda1=0.0,check_gradient=True)
 y = y.reshape(1,len(y))
 rnn.fit(X_container,y)
 #rnn.error_graph()

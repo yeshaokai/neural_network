@@ -19,7 +19,7 @@ n_sample = 700
 
 t = np.linspace(0,1,n_all,endpoint=False)
 sig = np.sin(2*np.pi*t)
-mu,sigma =0.0,0.05
+mu,sigma =0.0,0.01
 s = np.random.normal(mu,sigma,n_all)
 sig = sig+s
 #plt.plot(t,sig)
@@ -58,9 +58,9 @@ mlp.fit(X_container,y)
 
 #mlp.draw_learning_curve()
 
-print (abs(mlp.predict(X_container)-y).mean()/abs(y).mean())
 
-
+MSE = ((mlp.predict(X_container)-y)**2).mean()
+print MSE
 
 
 plt.plot(range(n_sample),y.flatten(),label='real data')

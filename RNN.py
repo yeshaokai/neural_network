@@ -42,11 +42,10 @@ class RNN:
 
 
         self._ar = np.random.uniform(-1,1,(self.hnodes,self.hnodes))
-        self._y = np.random.uniform(0,1,(self.hnodes,1))
 
-        self._y_copy = copy.deepcopy(self._y)
 
-        self._pi = np.zeros((self.hnodes,1))
+
+
 
         self._bias1 = np.random.uniform(-1,1,(self.hnodes,1))
 
@@ -96,7 +95,7 @@ class RNN:
         '''
 
 
-        u = w1.dot(x)+ar1.dot(_y.reshape(self.hnodes,1))
+        u = w1.dot(x)+ar1.dot(_y.reshape(self.hnodes,x.shape[1]))
 
 
         u+=bias1*np.ones(u.shape)
@@ -140,7 +139,7 @@ class RNN:
         deep copy the weights so that the numerical evaulation does not change the value of the weights
 
         '''
-        episilon = 1e-4
+        episilon = 1e-7
         w1=copy.deepcopy(self._w1)
         w2=copy.deepcopy(self._w2)
         
@@ -278,8 +277,9 @@ class RNN:
 
 
 
-        pi = self._sigmoid_gradient(y)*(self._y+self._ar*self._pi)
-        grad_recurrent = self._w2.T.dot(p)*pi
+        pi = self._sigmoid_gradient(y)*(self._y+self._ar.dot(self._pi))
+
+        grad_recurrent = (self._w2.T.dot(p)).dot(pi.T)
 
         self._pi = pi
         # updates the pi from pi(t) to pi(t+1)
@@ -305,8 +305,8 @@ class RNN:
             ana = np.hstack((ana,bias1_gradient.flatten()))
             ana = np.hstack((ana,bias2_gradient.flatten()))
             ana = np.hstack((ana,grad_recurrent.flatten()))
-#            print 'nu',str(nu)
-#            print 'ana',str(ana)
+            print 'nu',str(nu)
+            print 'ana',str(ana)
 #            print "relative error %s" % self.relative_error(nu,ana)
 
 
@@ -316,8 +316,8 @@ class RNN:
         self._bias1 -= (step1*self._sigmoid_gradient(y)).dot(np.ones((batch_length,1)))*self.eta
         self._w2-=grad2*np.ones(grad2.shape)*self.eta
         self._w1-=grad1*np.ones(grad1.shape)*self.eta
-
-        self._ar-=grad_recurrent*self.eta
+        
+        self._ar-=grad_recurrent*np.ones(grad_recurrent.shape)*self.eta
 
 
     def fit(self,x,t):
@@ -327,6 +327,7 @@ class RNN:
         online learning
         
         '''
+
         X_train = x
         t_train = t
         test_size = 0
@@ -338,7 +339,8 @@ class RNN:
         split the training data two two parts
         '''
         
-
+        
+        
         self.error=[]
         self.error_validation=[]
         ####
@@ -349,11 +351,13 @@ class RNN:
             error=[]           
             error_validation=[]
             
-            mini = np.array_split(range(X_train.shape[1]),X_train.shape[1])
+            mini = np.array_split(range(X_train.shape[1]),self.minibatches)
 
             mini_validation = np.array_split(range(X_validation.shape[1]),X_train.shape[1])
 
             for idx in mini:
+                self._y = np.random.uniform(0,1,(self.hnodes,len(idx)))
+                self._pi = np.zeros((self.hnodes,len(idx)))
 
                 mini_x = X_train[:,idx]
                 mini_t = t_train[:,idx]
