@@ -305,8 +305,8 @@ class RNN:
             ana = np.hstack((ana,bias1_gradient.flatten()))
             ana = np.hstack((ana,bias2_gradient.flatten()))
             ana = np.hstack((ana,grad_recurrent.flatten()))
-            print 'nu',str(nu)
-            print 'ana',str(ana)
+#            print 'nu',str(nu)
+#            print 'ana',str(ana)
 #            print "relative error %s" % self.relative_error(nu,ana)
 
 
@@ -377,19 +377,12 @@ class RNN:
         plt.plot(range(self.n_iter),self.error_validation,label='validation error')
         plt.legend()
         plt.show()
-    def predict(self,X):
-        Z = []
-        _y = np.random.uniform(0,1,(self.hnodes,1))
-        for i in range(X.shape[1]):
-            x = X[:,i].reshape((1,1))
+    def predict(self,x):
 
-            x,u,_y,y,v,z = self.feed_forward(x,_y,self._w1,self._w2,self._bias1,self._bias2,self._ar)
+        self._y = np.random.uniform(0,1,(self.hnodes,x.shape[1]))
+        x,u,_y,y,v,z = self.feed_forward(x,self._y,self._w1,self._w2,self._bias1,self._bias2,self._ar)
 
-            _y = y
-            Z.append(z.flatten())
-        Z = np.array(Z)
-
-        return Z
+        return z
             
     def error_graph(self):
         plt.xlabel('epoch')

@@ -59,8 +59,8 @@ mlp.fit(X_container,y)
 #mlp.draw_learning_curve()
 
 
-MSE = ((mlp.predict(X_container)-y)**2).mean()
-print MSE
+relative_error = (abs(mlp.predict(X_container)-y).mean())/(abs(y).mean())
+print "relative error",str(relative_error)
 
 
 plt.plot(range(n_sample),y.flatten(),label='real data')

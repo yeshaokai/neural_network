@@ -15,7 +15,7 @@ lags = 1
 
 print "the distance between input and output is %s" % (lags)
 n_all=1000
-n_sample = 300
+n_sample = 700
 
 t = np.linspace(0,1,n_all,endpoint=False)
 sig = np.sin(2*np.pi*t)
@@ -46,7 +46,7 @@ for i in range(n_sample):
 
 
 n_iter = 100
-eta = 0.05
+eta = 0.01
 inodes = lags
 onodes = 1
 hnodes = 2
@@ -59,12 +59,13 @@ rnn.fit(X_container,y)
 #rnn.draw_learning_curve()
 
 
-MSE = ((rnn.predict(X_container)-y)**2).mean()
-print "MSE",str(MSE)
+relative_error = (abs(rnn.predict(X_container)-y).mean())/(abs(y).mean())
+print "relative error",str(relative_error)
 
 
 plt.plot(range(n_sample),y.flatten(),label='real data')
-plt.plot(range(n_sample),rnn.predict(X_container),label='predicted data')
+
+plt.plot(range(n_sample),rnn.predict(X_container).flatten(),label='predicted data')
 plt.legend()
 plt.show()
 
