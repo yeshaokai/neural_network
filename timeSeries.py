@@ -46,10 +46,10 @@ for i in range(n_sample):
 
 
 n_iter = 100
-eta = 0.02
+eta = 0.01
 inodes = lags
 onodes = 1
-hnodes = 20
+hnodes = 2
 learning_curve = True
 
 mlp = MLP(n_iter=n_iter,inodes=inodes,hnodes=hnodes,onodes=onodes,eta=eta,learning_curve=True,minibatches=50,lamda2=0.0,lamda1=0.0)

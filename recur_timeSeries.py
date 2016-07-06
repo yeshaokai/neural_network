@@ -15,11 +15,11 @@ lags = 1
 
 print "the distance between input and output is %s" % (lags)
 n_all=1000
-n_sample = 50
+n_sample = 700
 
 t = np.linspace(0,1,n_all,endpoint=False)
 sig = np.sin(2*np.pi*t)
-mu,sigma =0.0,0.05
+mu,sigma =0.0,0.01
 s = np.random.normal(mu,sigma,n_all)
 sig = sig+s
 #plt.plot(t,sig)
@@ -45,26 +45,28 @@ for i in range(n_sample):
     X_container[:,i] = X_lags
 
 
-n_iter = 500
-eta = 0.1
+n_iter = 100
+eta = 0.05
 inodes = lags
 onodes = 1
-hnodes = 10
+hnodes = 2
 learning_curve = True
 
-rnn = RNN(n_iter=n_iter,inodes=inodes,hnodes=hnodes,onodes=onodes,eta=eta,learning_curve=True,minibatches=1,lamda2=0.0,lamda1=0.0)
+rnn = RNN(n_iter=n_iter,inodes=inodes,hnodes=hnodes,onodes=onodes,eta=eta,learning_curve=True,minibatches=1,lamda2=0.0,lamda1=0.0,check_gradient=True)
 y = y.reshape(1,len(y))
 rnn.fit(X_container,y)
-rnn.error_graph()
+#rnn.error_graph()
 #rnn.draw_learning_curve()
 
-print (abs(rnn.predict(X_container)-y).mean()/abs(y).mean())
 
-
+MSE = ((rnn.predict(X_container)-y)**2).mean()
+print "MSE",str(MSE)
 
 
 plt.plot(range(n_sample),y.flatten(),label='real data')
-plt.plot(range(n_sample),rnn.predict(X_container).flatten(),label='predicted data')
+plt.plot(range(n_sample),rnn.predict(X_container),label='predicted data')
 plt.legend()
 plt.show()
+
+
 

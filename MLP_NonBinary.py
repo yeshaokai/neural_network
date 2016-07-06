@@ -80,7 +80,6 @@ class MLP:
 
         '''
 
-
         u = w1.dot(x)
 
 

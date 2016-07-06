@@ -41,8 +41,10 @@ class RNN:
         self._w2 = np.random.uniform(-1,1,(self.onodes,self.hnodes))
 
 
-        self._ar = np.random.uniform(0,1,(self.hnodes,1))
+        self._ar = np.random.uniform(-1,1,(self.hnodes,self.hnodes))
         self._y = np.random.uniform(0,1,(self.hnodes,1))
+
+        self._y_copy = copy.deepcopy(self._y)
 
         self._pi = np.zeros((self.hnodes,1))
 
@@ -74,7 +76,7 @@ class RNN:
  #       sg = self._sigmoid(z)
         return z*(1-z)
     
-    def feed_forward(self,x,w1,w2,bias1,bias2):
+    def feed_forward(self,x,_y,w1,w2,bias1,bias2,ar1):
         '''
         u is the net input for hidden neuron        
         y is the activation output from hidden neuron
@@ -94,7 +96,7 @@ class RNN:
         '''
 
 
-        u = w1.dot(x)+self._ar[:,-1].reshape((self.hnodes,1))*(self._y[:,-1].reshape(self.hnodes,1))
+        u = w1.dot(x)+ar1.dot(_y.reshape(self.hnodes,1))
 
 
         u+=bias1*np.ones(u.shape)
@@ -102,32 +104,33 @@ class RNN:
         y here is y(t+1). Should be saved to the y array.
         
         '''
+        # _y is y(t)
+        # y is y(t+1)
         y = self._sigmoid(u)
-        self._y = np.hstack((self._y,y))
 
         v = np.dot(w2,y)
         v+= bias2*np.ones(v.shape)
-        z = self._sigmoid(v)
+        z = v
 
-        return x,u,y,v,z
+        return x,u,_y,y,v,z
     def L2_term(self,w1,w2):
         
         return 0.5*self.lamda2*((w1.flatten()**2).sum()+(w2.flatten()**2).sum())
     def L1_term(self,w1,w2):
         return 0.5*self.lamda1*(np.abs(w1.flatten()).sum()+np.abs(w2.flatten()).sum())
 
-    def get_cost(self,x,t,w1,w2,bias1,bias2,verbose=False):
+    def get_cost(self,x,_y,t,w1,w2,bias1,bias2,ar1,verbose=False):
         '''
          if verbose is True, return information for each layer.
-         
+         _y has the previous y values
         '''
         
-        x,u,v,y,z=self.feed_forward(x,w1,w2,bias1,bias2)
+        x,u,v,_y,y,z=self.feed_forward(x,_y,w1,w2,bias1,bias2,ar1)
         value = (0.5*(z-t)**2).sum()+self.L2_term(w1,w2)+self.L1_term(w1,w2)
         if not verbose:
             return value
         else:
-            return (x,u,v,y,z,value)
+            return (x,u,v,_y,y,z,value)
     
 
     def numerical_gradient(self,x,t):
@@ -137,7 +140,7 @@ class RNN:
         deep copy the weights so that the numerical evaulation does not change the value of the weights
 
         '''
-        episilon = 1e-6
+        episilon = 1e-4
         w1=copy.deepcopy(self._w1)
         w2=copy.deepcopy(self._w2)
         
@@ -147,9 +150,9 @@ class RNN:
         for i in range(w1.shape[0]):
             for k in range(w1.shape[1]):
                 w1[i][k]+=episilon
-                left=self.get_cost(x,t,w1,w2,self._bias1,self._bias2)                
+                left=self.get_cost(x,self._y,t,w1,w2,self._bias1,self._bias2,self._ar)                
                 w1[i][k]-=2*episilon
-                right=self.get_cost(x,t,w1,w2,self._bias1,self._bias2)
+                right=self.get_cost(x,self._y,t,w1,w2,self._bias1,self._bias2,self._ar)
 
                 nu_gradient = (left-right)/(2*episilon)
                 gradient1[i][k]=nu_gradient
@@ -162,9 +165,9 @@ class RNN:
         for j in range(w2.shape[0]):            
             for i in range(w2.shape[1]):
                 w2[j][i]+=episilon
-                left = self.get_cost(x,t,w1,w2,self._bias1,self._bias2)
+                left = self.get_cost(x,self._y,t,w1,w2,self._bias1,self._bias2,self._ar)
                 w2[j][i]-=2*episilon
-                right = self.get_cost(x,t,w1,w2,self._bias1,self._bias2)                
+                right = self.get_cost(x,self._y,t,w1,w2,self._bias1,self._bias2,self._ar)                
                 nu_gradient = (left-right)/(2*episilon)
                 gradient2[j][i]=nu_gradient
 
@@ -174,9 +177,9 @@ class RNN:
         bias1_gradient = np.zeros(self.hnodes)
         for i in range(bias1_gradient.shape[0]):
             bias1[i] +=episilon
-            left = self.get_cost(x,t,self._w1,self._w2,bias1,bias2)
+            left = self.get_cost(x,self._y,t,self._w1,self._w2,bias1,bias2,self._ar)
             bias1[i] -=2*episilon
-            right = self.get_cost(x,t,self._w1,self._w2,bias1,bias2)
+            right = self.get_cost(x,self._y,t,self._w1,self._w2,bias1,bias2,self._ar)
             bias1_gradient[i] = (left-right)/(2*episilon)
         bias1_gradient = bias1_gradient.reshape(self.hnodes,1)
 
@@ -187,28 +190,29 @@ class RNN:
         for i in range(bias2_gradient.shape[0]):
 
             bias2[i] +=episilon
-            left = self.get_cost(x,t,self._w1,self._w2,bias1,bias2)
+            left = self.get_cost(x,self._y,t,self._w1,self._w2,bias1,bias2,self._ar)
             bias2[i] -=2*episilon
-            right = self.get_cost(x,t,self._w1,self._w2,bias1,bias2)
+            right = self.get_cost(x,self._y,t,self._w1,self._w2,bias1,bias2,self._ar)
             bias2_gradient[i] = (left-right)/(2*episilon)
         bias2_gradient.reshape((self.onodes,1))
 
-        
-        recur1_gradient = np.zeros(self.hnodes)
+        ar1 = copy.deepcopy(self._ar)
+        recur1_gradient = np.zeros((self.hnodes,self.hnodes))
         for i in range(recur1_gradient.shape[0]):
-            self._ar[i,-1]+=episilon
-            left = self.get_cost(x[:,-1],t[:,-1],self._w1,self._w2,bias1,bias2)
-            self._ar[i,-1]+=2*episilon
-            right = self.get_cost(x[:,-1],t[:,-1],self._w1,self._w2,bias1,bias2)
-            recur1_gradient[i] = (left_right)/(2*episilon)
-        recur1_gradient.reshape((self.hnodes,1))
+            for j in range(recur1_gradient.shape[1]):
+                ar1[i][j]+=episilon            
+                left = self.get_cost(x,self._y,t,self._w1,self._w2,bias1,bias2,ar1)
+                ar1[i][j]-=2*episilon
+                right = self.get_cost(x,self._y,t,self._w1,self._w2,bias1,bias2,ar1)
+                recur1_gradient[i][j] = (left-right)/(2*episilon)
+        recur1_gradient = recur1_gradient.flatten()
 
 
         num_weight_gradient = self._w1.shape[0]*self._w1.shape[1]+self._w2.shape[0]*self._w2.shape[1]
 
         num_bias_gradient = self._bias1.shape[0]+self._bias2.shape[0]
 
-        num_recur1_gradient = self._ar.shape[0]
+        num_recur1_gradient = self._ar.shape[0]*self._ar.shape[1]
 
         gradient_array = np.zeros((1,num_weight_gradient+num_bias_gradient+num_recur1_gradient))
 
@@ -219,13 +223,12 @@ class RNN:
         bias_gradient = bias_gradient.reshape(1,num_bias_gradient)
         
 
-
-
         gradient_array[:,0:num_weight_gradient]+=weight_gradient
 
         gradient_array[:,num_weight_gradient:num_weight_gradient+num_bias_gradient]+=bias_gradient
-        
+
         gradient_array[:,num_weight_gradient+num_bias_gradient:]+=recur1_gradient
+
         return gradient_array
     
     def relative_error(self,a,b):
@@ -253,16 +256,15 @@ class RNN:
         
         output_error = z-t
 
-        sig_grad2 = self._sigmoid_gradient(z)
-        
-        
+        sig_grad2 = 1#self._sigmoid_gradient(z)                
+
         grad2 = np.dot((output_error*sig_grad2),y.T)
  
         grad2 = grad2+self.lamda2*(self._w2)+0.5*self.lamda1*self._w2/abs(self._w2)
 
         ### for recurrent network, the gradient 2 seems to be same
         
-        step1 = self._w2.T.dot((output_error)*self._sigmoid_gradient(z))
+        step1 = self._w2.T.dot((output_error)*sig_grad2)
         step2 = step1*self._sigmoid_gradient(y)
 
         grad1 = step2.dot(x.T)        
@@ -270,38 +272,53 @@ class RNN:
         grad1= grad1+self.lamda2*(self._w1)+0.5*self.lamda1*self._w1/abs(self._w1)
 
         grad1 = grad1.reshape(self._w1.shape)
-
-        ### updating the recurrent weight
-        # self._y[-1] has y(t+1)  self._y[-2] has y(t)
-        # u(t+1) is the u we have 
-        # self._ar[-1] has ar(t)
         
         p = output_error*sig_grad2
-        # grad_recurrent =  p(t+1)b(t+1)derivative(u(t+1))[y(t)+ar[t]pi[t]]
-        #derivative(u(t+1)) is self._sigmoid_gradient(y)
-        grad_recurrent = self._w2.T.dot(p)*self._sigmoid_gradient(y)*(self._y[:,-2]+self._ar[:,-1]) # [hidden]
+
+
+
+
+        pi = self._sigmoid_gradient(y)*(self._y+self._ar*self._pi)
+        grad_recurrent = self._w2.T.dot(p)*pi
+
+        self._pi = pi
+        # updates the pi from pi(t) to pi(t+1)
+
+
+        
 
         ### 
-        self._ar = np.hstack((self._ar,self._ar[:,-1]+grad_recurrent))
+
 
 
         bias2_gradient = (output_error*sig_grad2).dot(np.ones((batch_length,1)))
         bias1_gradient = (step1*self._sigmoid_gradient(y)).dot(np.ones((batch_length,1)))
         if self.check_gradient:
+            ## at this point, what does numerical function get?
+            # self._y still represents y(t)
+            # self._pi represents pi(t+1)
+            # self._w1 represents a(t)
+            # self._w2 represents b(t)
+            # self._ar represents ar(t)
             nu = self.numerical_gradient(x,t)
             ana = np.hstack((grad1.flatten(),grad2.flatten()))
             ana = np.hstack((ana,bias1_gradient.flatten()))
             ana = np.hstack((ana,bias2_gradient.flatten()))
-            ana = np.hstack((ana,self._ar[:,-1].flatten()))
+            ana = np.hstack((ana,grad_recurrent.flatten()))
+#            print 'nu',str(nu)
+#            print 'ana',str(ana)
+#            print "relative error %s" % self.relative_error(nu,ana)
 
 
-            print "relative error %s" % self.relative_error(nu,ana)
+
 
         self._bias2 -= (output_error*sig_grad2).dot(np.ones((batch_length,1)))*self.eta        
         self._bias1 -= (step1*self._sigmoid_gradient(y)).dot(np.ones((batch_length,1)))*self.eta
-
         self._w2-=grad2*np.ones(grad2.shape)*self.eta
         self._w1-=grad1*np.ones(grad1.shape)*self.eta
+
+        self._ar-=grad_recurrent*self.eta
+
 
     def fit(self,x,t):
 
@@ -341,16 +358,13 @@ class RNN:
                 mini_x = X_train[:,idx]
                 mini_t = t_train[:,idx]
 
-
-
-                mini_x,u,y,v,z,e = self.get_cost(mini_x,mini_t,self._w1,self._w2,self._bias1,self._bias2,verbose=True)
-
+                mini_x,u,_y,y,v,z,e = self.get_cost(mini_x,self._y,mini_t,self._w1,self._w2,self._bias1,self._bias2,self._ar,verbose=True)
 
                 error.append(e/len(idx))
 
-
                 self._update_weights(mini_t,mini_x,u,y,v,z,len(idx))
 
+                self._y = y                 
             self.error.append(np.array(error).mean())
 
             
@@ -359,13 +373,19 @@ class RNN:
         plt.plot(range(self.n_iter),self.error_validation,label='validation error')
         plt.legend()
         plt.show()
-    def predict(self,x):
+    def predict(self,X):
+        Z = []
+        _y = np.random.uniform(0,1,(self.hnodes,1))
+        for i in range(X.shape[1]):
+            x = X[:,i].reshape((1,1))
 
+            x,u,_y,y,v,z = self.feed_forward(x,_y,self._w1,self._w2,self._bias1,self._bias2,self._ar)
 
-        x,u,y,v,z = self.feed_forward(x,self._w1,self._w2,self._bias1,self._bias2)
+            _y = y
+            Z.append(z.flatten())
+        Z = np.array(Z)
 
-
-        return z
+        return Z
             
     def error_graph(self):
         plt.xlabel('epoch')
